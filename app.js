@@ -1,49 +1,49 @@
+//main js script for the application
 const express = require('express');
 const path = require('path');
-const cookieParser = require('cookie-parser');
+const sequelize = require('./models').sequelize;
+const bookRoutes = require('./routes/books');
+const mainRoutes = require('./routes');
 
-const app = express()
+//creates express app
+const app = express();
 
-
-const routes = require('./routes/index');
-const books = require('./routes/books');
-
-// View Engine Setup
-app.set('views', path.join(__dirname, 'views'));
-app.set('view engine', 'pug');
-
-const bodyParser = require('body-parser'); 
-app.use(bodyParser.json()); 
-app.use(bodyParser.urlencoded({ extended: false }))
-app.use(cookieParser());
-
+//Setting some components of the app to be used.
+app.use(express.urlencoded({extended: false}));
 app.use(express.json());
-app.use(express.urlencoded({ extended: true}));
+app.use(express.static(path.join(__dirname, 'public')));
+app.set('view engine', 'pug');
+app.use('/books', bookRoutes);
+app.use('/', mainRoutes);
 
-//Static Route Setup to Public Folder
-app.use('/static', express.static(path.join(__dirname, 'public')));
-
-// Routes
-app.use('/', routes);
-app.use('/books', books);
-
-//404 page not found
-app.use((req,res,next) => {
-    const err = new Error("Oops sorry! We cannot find the page you are searching for.");
-    err.status = 404;
-    next(err)
-  })
-  
-
-// Error Page
-app.use((err, req, res, next) => {
-  res.locals.message = err; 
-  res.status(err.status);
-  res.render('page-not-found', {header: "Page Not Found", style: '../static/stylesheets/style.css'});
-})
-
-app.listen(3000, () => {
-    console.log('This server listening on port 3000');
+/* Listen on port*/
+sequelize.sync().then(() => {
+    //setting up dev server
+    app.listen(3000, () => {
+        console.log('This port is now running @ 3000.');
+    });    
 });
 
-module.exports = app;
+//this makes it so that any route that is not defined will pass through a defined error.
+app.all('*', (req, res, next) => {
+    const err = new Error('Page not found!');
+    err.status = 404;
+    console.log(`Something went wrong. Status: ${err.status}, Message: ${err.message}, Stack: ${err.stack}`)
+    next(err);
+});
+
+// error handler
+app.use( (err, req, res, next) => {
+    // set locals, only providing error in development
+    res.locals.message = err.message;
+    res.locals.error = req.app.get('env') === 'development' ? err : {};
+    console.log(err.message, err.status);
+
+    // render the error page
+    res.status(err.status || 500);
+    if (err.status === 404) {
+        res.render('page-not-found');
+    } else {
+        res.render('error');
+    }
+});

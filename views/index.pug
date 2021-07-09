@@ -1,37 +1,26 @@
 extends layout
 
 block content
-  
-  header
-  h2= "Books"
-  div.container 
-    p #[a(class="button" href="/books/new") Create New Book]
-    form(action="/books/search"  class="search" method="post")
-      input(type="text" name="query" placeholder="Search for a book..." class="search")
-      input(type="submit" id="searchSubmit" value="Search")
-    table 
+  h1 The Book Storage App
+  p
+    a.button(href='/books/new') Create New Book
+  form.search(action="/books", method="post")
+    input(type='text' name='searchtext' placeholder='Search..')
+    input(type='submit' value='Search')
+  table
+    thead
       tr
         th Title
         th Author
         th Genre
         th Year
-      each n in books
+    tbody
+      each book in books.rows
         tr
-          td: a(href="/books/" + n.id) #{n.title}
-          td= n.author
-          td= n.genre
-          td= n.year
-  div.page
-    - var n = 1
-    ul
-      while n <= pages
-        if page === n
-          - console.log('active')
-          - var styleActive = "active"
-          li(class= styleActive) 
-            a(href="/books/page/" + n alt= n) #{n++}
-        else 
-          - console.log(`page:${page} === n:${n}`) 
-          - var styleLinks = "links"
-          li(class= styleLinks) 
-            a( href="/books/page/" + n alt= n) #{n++}
+          td
+            a(href=`/books/${book.id}`)=book.title
+          td=book.author
+          td=book.genre
+          td=book.year
+  div.pagtination
+    include pagination
