@@ -1,49 +1,78 @@
-//main js script for the application
-const express = require('express');
-const path = require('path');
-const sequelize = require('./models').sequelize;
-const bookRoutes = require('./routes/books');
-const mainRoutes = require('./routes');
+'use strict';
 
-//creates express app
+
+// load modules
+const express = require('express');
+const { sequelize } = require('./models');
+const morgan = require('morgan');
+const users = require('./routes/users');
+const courses = require('./routes/courses');
+
+// variable to enable global error logging
+const enableGlobalErrorLogging = process.env.ENABLE_GLOBAL_ERROR_LOGGING === 'true';
+
+// create the Express app
 const app = express();
 
-//Setting some components of the app to be used.
+// setup morgan which gives us http request logging
 app.use(express.urlencoded({extended: false}));
 app.use(express.json());
-app.use(express.static(path.join(__dirname, 'public')));
-app.set('view engine', 'pug');
-app.use('/books', bookRoutes);
-app.use('/', mainRoutes);
+app.use(morgan('dev'));
 
-/* Listen on port*/
-sequelize.sync().then(() => {
-    //setting up dev server
-    app.listen(3000, () => {
-        console.log('This port is now running @ 3000.');
-    });    
-});
+// TODO setup your api routes here
+app.use('/api', courses);
+app.use('/api', users);
 
-//this makes it so that any route that is not defined will pass through a defined error.
-app.all('*', (req, res, next) => {
-    const err = new Error('Page not found!');
-    err.status = 404;
-    console.log(`Something went wrong. Status: ${err.status}, Message: ${err.message}, Stack: ${err.stack}`)
-    next(err);
-});
+//Testing DB connection
+(async () => {
+  try {
+    await sequelize.authenticate();
+    console.log('Connection to DB succesful!!');
 
-// error handler
-app.use( (err, req, res, next) => {
-    // set locals, only providing error in development
-    res.locals.message = err.message;
-    res.locals.error = req.app.get('env') === 'development' ? err : {};
-    console.log(err.message, err.status);
+    //sync the models - leaving this here to help with testing if a db refresh is needed.
+    //console.log('Synchronizing the models with the database...');
+    //await sequelize.sync({ force: true });
 
-    // render the error page
-    res.status(err.status || 500);
-    if (err.status === 404) {
-        res.render('page-not-found');
+  } catch(error) {
+    if (error.name === 'SequelizeValidationError') {
+      const errors = error.errors.map(err => err.message);
+      console.error('Validation errors: ', errors);
     } else {
-        res.render('error');
+      throw error;
     }
+  }
+})();
+
+// setup a friendly greeting for the root route
+app.get('/', (req, res) => {
+  res.json({
+    message: 'Welcome to my REST API project!',
+  });
+});
+
+// send 404 if no other route matched
+app.use((req, res) => {
+  res.status(404).json({
+    message: 'Route Not Found',
+  });
+});
+
+// setup a global error handler
+app.use((err, req, res, next) => {
+  if (enableGlobalErrorLogging) {
+    console.error(`Global error handler: ${JSON.stringify(err.stack)}`);
+  }
+
+  res.status(err.status || 500).json({
+    message: err.message,
+    error: {},
+  });
+});
+
+// set our port
+app.set('port', process.env.PORT || 5000);
+
+// start listening on our port
+const server = app.listen(app.get('port'), () => {
+  console.log(`Express server is listening on port ${server.address().port}`);
 });
